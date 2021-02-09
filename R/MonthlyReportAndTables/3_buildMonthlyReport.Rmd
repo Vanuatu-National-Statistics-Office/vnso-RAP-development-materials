@@ -23,6 +23,126 @@ set_flextable_defaults(font.family="Times New Roman", font.size=5, font.color="b
 # National Sustainable Development Plan Indicators (NSDP)
 
 ```{r NSDP indicators}
+
+# Calculate ECO 1.4.1 Value and volume of international trade/merchandise trade (proxy- NSDP indicator is for national)
+exports <- sum(processedTradeStats[processedTradeStats$CP4 == 1000, "Stat..Value"], na.rm=TRUE) 
+reExports <- sum(processedTradeStats[processedTradeStats$CP4 == 3071, "Stat..Value"], na.rm=TRUE)
+imports <- sum(processedTradeStats[processedTradeStats$CP4 %in% c(4000, 4071, 7100), "Stat..Value"], na.rm=TRUE)
+
+# Calculate ECO 1.5.2 Trade by trade agreement (proxy- all imports too MSG countries)
+tradeStatsForMSG <- processedTradeStats[is.na(processedTradeStats$PRF) == FALSE & processedTradeStats$PRF == "MSG", ]
+msgImportValue<- sum(tradeStatsForMSG$Stat..Value)
+msgProxyExportValue <- sum(processedTradeStats[processedTradeStats$EXPORT.COUNTRY %in% c("FIJI", "NEW CALEDONIA", "PAPUA NEW GUINEA", "SOLOMON ISLANDS"), "Stat..Value"], na.rm=TRUE) #need to exclude re-exports from this calculation
+msgTradeAgreementProxyValue<- msgImportValue + msgProxyExportValue
+
+# Calculate ECO 1.5.3 Balance of Trade by major partner countries 
+codesCP4 <- c(1000, 3071) # Define the CP4 codes need for Exports table
+
+# Define the categories used for each column
+categoryColumn <- "EXPORT.COUNTRY"
+columnCategories <- list(
+  "Australia: Exports"=c("AUSTRALIA"),
+  "China, People's Republic of: Exports"=c("CHINA, PEOPLES REPUBLIC OF"),
+  "Fiji: Exports"=c("FIJI"),
+  "France: Exports"=c("FRANCE"),
+  "Hong Kong: Exports"=c("HONG KONG"),
+  "India: Exports"=c("INDIA"),
+  "Indonesia: Exports"=c("INDONESIA"),
+  "Japan: Exports"=c("JAPAN"),
+  "Korea, Republic Of: Exports"=c("KOREA, REPUBLIC OF"),
+  "Malaysia: Exports"=c("MALAYSIA"),
+  "Netherlands: Exports"=c("NETHERLANDS"),
+  "New Caledonia: Exports"=c("NEW CALEDONIA"),
+  "New Zealand: Exports"=c("NEW ZEALAND"),
+  "Papua New Guinea: Exports"=c("PAPUA NEW GUINEA"),
+  "Philippines: Exports"=c("PHILIPPINES"),
+  "Singapore: Exports"=c("SINGAPORE"),
+  "Solomon Islands: Exports"=c("SOLOMON ISLANDS"),
+  "Thailand: Exports"=c("THAILAND"),
+  "United Kingdom: Exports"=c("UNITED KINGDOM"),
+  "United States of America: Exports"=c("UNITED STATES OF AMERICA")
+)
+countries <- unique(processedTradeStats[, "EXPORT.COUNTRY"])
+columnCategories[["All Others: Exports"]] <- countries[countries %in% unlist(columnCategories) == FALSE]
+
+# Build the table
+totalPartnerCountryExports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
+
+# Define the CP4 codes need for Imports table
+codesCP4 <- c(4000, 4071, 7100)
+
+# Define the categories used for each column
+categoryColumn <- "IMPORT.COUNTRY"
+columnCategories <- list(
+  "Australia: Imports"=c("AUSTRALIA"),
+  "China, People's Republic of: Imports"=c("CHINA, PEOPLES REPUBLIC OF"),
+  "Fiji: Imports"=c("FIJI"),
+  "France: Imports"=c("FRANCE"),
+  "Hong Kong: Imports"=c("HONG KONG"),
+  "India: Imports"=c("INDIA"),
+  "Indonesia: Imports"=c("INDONESIA"),
+  "Japan: Imports"=c("JAPAN"),
+  "Korea, Republic Of: Imports"=c("KOREA, REPUBLIC OF"),
+  "Malaysia: Imports"=c("MALAYSIA"),
+  "Netherlands: Imports"=c("NETHERLANDS"),
+  "New Caledonia: Imports"=c("NEW CALEDONIA"),
+  "New Zealand: Imports"=c("NEW ZEALAND"),
+  "Papua New Guinea: Imports"=c("PAPUA NEW GUINEA"),
+  "Philippines: Imports"=c("PHILIPPINES"),
+  "Singapore: Imports"=c("SINGAPORE"),
+  "Solomon Islands: Imports"=c("SOLOMON ISLANDS"),
+  "Thailand: Imports"=c("THAILAND"),
+  "United Kingdom: Imports"=c("UNITED KINGDOM"),
+  "United States of America: Imports"=c("UNITED STATES OF AMERICA")
+)
+countries <- unique(processedTradeStats[, "IMPORT.COUNTRY"])
+columnCategories[["All Others: Imports"]] <- countries[countries %in% unlist(columnCategories) == FALSE]
+
+# Build the table
+totalPartnerCountryImports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
+
+# Calculate the Balance of Trade by Major Partner Countries
+
+balanceOfTradeByMajorPartnerCountries <- totalPartnerCountryExports - totalPartnerCountryImports
+colnames(balanceOfTradeByMajorPartnerCountries) <- sapply(colnames(balanceOfTradeByMajorPartnerCountries),
+                                                          FUN=function(colName){
+                                                            return(strsplit(colName, split=":")[[1]][1])
+                                                          })
+
+# Calculate ECO 1.6.2 Total estimated value of trade agreement as a proportion of GDP
+timeSeriesGrossDomesticProduct <- data.frame("2006"=48611000000, "2007"=52898000000, "2008"=59863000000, "2009"=63257000000, "2010"=64996000000, "2011"=68905000000, "2012"=69278000000, "2013"=71692000000, "2014"=74970000000, "2015"=79657000000, "2016"=84707000000, "2017"=94887000000, "2018"=100771000000) # Insert values into table
+mostRecentGrossDomesticProduct<- timeSeriesGrossDomesticProduct[1, 13] #need to change to takes subset of last value for when GDP figures are added
+tradeAgreementValueProportionGDP<- (msgTradeAgreementProxyValue/mostRecentGrossDomesticProduct)*100
+
+# Calculate ECO 1.7.1 Level of production of major commodities to include Cocoa and Copra
+codesCP4 <- c(1000) # CP4 code for exports
+
+# Define the categories used for each column
+categoryColumn <- "Principle.Exports"
+columnCategories <- list(
+  "Beef fresh, chilled, frozen and preserved"=c("Beef fresh, chilled, frozen and preserved"),
+  "Cocoa"=c("Cocoa"),
+  "Coconut oil"=c("Coconut Oil"),
+  "Coffee, all types"=c("Coffee, all types"),
+  "Copra"=c("Copra"),
+  "Fish: Tuna"=c("Fish: Tuna"),
+  "Kava"=c("Kava"),
+  "Wood and articles of wood; wood charcoal"=c("Wood and articles of wood; wood charcoal")
+)
+
+# Build the table
+totalPrincipleExports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
+
+# ECO 1.4.1 Calculate Target: value and volume of international trade/merchandise trade (proxy- NSDP indicator is for national)- 2030 increase of 20%
+
+# ECO 1.5.2 Calculate Target: trade by trade agreement (value)- 2020 exports increase by 15%
+
+# ECO 1.5.3 Calculate Target: balance of trade by major partner countries- 2020 exports increase by 20%
+
+# ECO 1.6.2 Calculate Target: total estimated value of trade agreement as proportion of GDP- 2030 increase by 15%
+
+# ECO 1.7.1 Calculate Target: level of production of major commodities to include cocoa and copra- 2030 increase 10-15% of the proportion
+
 # Create the NSDP table
 nsdpIndicators <- data.frame(
   "Policy Objectives"=c("ECO 1.4: Increase trade and investment opportunities and reduce barriers, including through the use of Aid-for-Trade",
@@ -32,14 +152,12 @@ nsdpIndicators <- data.frame(
                         "ECO 1.6: Require all new trade agreements to demonstrate tangible benefits in the national interest",
                         "ECO 1.7: Stimulate economic diversification to spread the benefits of growth and increase economic stability"),
   "SMART Indicators"=c("ECO 1.4.1 Value and volume of national trade/merchandise trade",
-                       "ECO 1.5.1 Benefits/value accrued through various trade agreements",
                        "ECO 1.5.2 Trade by trade agreement (value)",
                        "ECO 1.5.3 Balance of trade by major partner countries",
                        "ECO 1.6.2 Total estimated value of trade agreement as proportion of GDP",
                        "ECO 1.7.1 Level of production of major commodities to include cocoa and copra"),
   "Indicator Value (Increased/Decreased)"=NA,
-  "Targets 2020"=c("By 2030 increase of 20%",
-                   "By 2020, exports increase by 20%",
+  "Targets 2030"=c("By 2030 increase of 20%",
                    "By 2020, exports increase by 15%",
                    "By 2020, exports increase by 20%",
                    "By 2030 increase by 15%",
@@ -79,6 +197,86 @@ Automated text which states the growth rate that is needed for the policy object
 Automated text of grow of exports and imports over last 1, 5 and 10 years by major countries.
 
 ```{r major partner country trade, warning=FALSE, fig.width=5.5, fig.height=2.5}
+
+## Getting latest statistics ##
+# Define the CP4 codes need for table
+codesCP4 <- c(1000, 3071)
+
+# Define the categories used for each column
+categoryColumn <- "EXPORT.COUNTRY"
+columnCategories <- list(
+  "Australia: Exports"=c("AUSTRALIA"),
+  "China, People's Republic of: Exports"=c("CHINA, PEOPLES REPUBLIC OF"),
+  "Fiji: Exports"=c("FIJI"),
+  "France: Exports"=c("FRANCE"),
+  "Hong Kong: Exports"=c("HONG KONG"),
+  "India: Exports"=c("INDIA"),
+  "Indonesia: Exports"=c("INDONESIA"),
+  "Japan: Exports"=c("JAPAN"),
+  "Korea, Republic Of: Exports"=c("KOREA, REPUBLIC OF"),
+  "Malaysia: Exports"=c("MALAYSIA"),
+  "Netherlands: Exports"=c("NETHERLANDS"),
+  "New Caledonia: Exports"=c("NEW CALEDONIA"),
+  "New Zealand: Exports"=c("NEW ZEALAND"),
+  "Papua New Guinea: Exports"=c("PAPUA NEW GUINEA"),
+  "Philippines: Exports"=c("PHILIPPINES"),
+  "Singapore: Exports"=c("SINGAPORE"),
+  "Solomon Islands: Exports"=c("SOLOMON ISLANDS"),
+  "Thailand: Exports"=c("THAILAND"),
+  "United Kingdom: Exports"=c("UNITED KINGDOM"),
+  "United States of America: Exports"=c("UNITED STATES OF AMERICA")
+)
+countries <- unique(processedTradeStats[, "EXPORT.COUNTRY"])
+columnCategories[["All Others: Exports"]] <- countries[countries %in% unlist(columnCategories) == FALSE]
+
+# Build the table
+totalPartnerCountryExports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
+
+# Calculate the Imports by Major Partner Countries
+
+# Define the CP4 codes need for table
+codesCP4 <- c(4000, 4071, 7100)
+
+# Define the categories used for each column
+categoryColumn <- "IMPORT.COUNTRY"
+columnCategories <- list(
+  "Australia: Imports"=c("AUSTRALIA"),
+  "China, People's Republic of: Imports"=c("CHINA, PEOPLES REPUBLIC OF"),
+  "Fiji: Imports"=c("FIJI"),
+  "France: Imports"=c("FRANCE"),
+  "Hong Kong: Imports"=c("HONG KONG"),
+  "India: Imports"=c("INDIA"),
+  "Indonesia: Imports"=c("INDONESIA"),
+  "Japan: Imports"=c("JAPAN"),
+  "Korea, Republic Of: Imports"=c("KOREA, REPUBLIC OF"),
+  "Malaysia: Imports"=c("MALAYSIA"),
+  "Netherlands: Imports"=c("NETHERLANDS"),
+  "New Caledonia: Imports"=c("NEW CALEDONIA"),
+  "New Zealand: Imports"=c("NEW ZEALAND"),
+  "Papua New Guinea: Imports"=c("PAPUA NEW GUINEA"),
+  "Philippines: Imports"=c("PHILIPPINES"),
+  "Singapore: Imports"=c("SINGAPORE"),
+  "Solomon Islands: Imports"=c("SOLOMON ISLANDS"),
+  "Thailand: Imports"=c("THAILAND"),
+  "United Kingdom: Imports"=c("UNITED KINGDOM"),
+  "United States of America: Imports"=c("UNITED STATES OF AMERICA")
+)
+countries <- unique(processedTradeStats[, "IMPORT.COUNTRY"])
+columnCategories[["All Others: Imports"]] <- countries[countries %in% unlist(columnCategories) == FALSE]
+
+# Build the table
+totalPartnerCountryImports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
+
+# Calculate the Balance of Trade by Major Partner Countries
+
+balanceOfTradeByMajorPartnerCountries <- totalPartnerCountryExports - totalPartnerCountryImports
+colnames(balanceOfTradeByMajorPartnerCountries) <- sapply(colnames(balanceOfTradeByMajorPartnerCountries),
+                                                          FUN=function(colName){
+                                                            return(strsplit(colName, split=":")[[1]][1])
+                                                          })
+
+
+
 # Get the polygons for the world
 world <- getMap(resolution="coarse")
 
@@ -89,9 +287,76 @@ par(mar=c(0,0,0,0))
 plot(world, col=rgb(1,0,0, runif(length(world))))
 ```
 
-# Trade Balance of Top 5 Pacific Countries excluding Fiji
+# Trade Balance of Top 5 Pacific Islands (excluding Melanesian Islands, Australia and New Zealand) 
 
 ```{r trade balance of top 5, fig.height=1.75}
+## Calculate exports 
+
+# Define the CP4 codes need for table
+codesCP4 <- c(1000, 3071)
+
+# Define the categories used for each column
+categoryColumn <- "EXPORT.COUNTRY"
+columnCategories <- list(
+  "American Samoa: Exports"=c("AMERICAN SAMOA"),
+  "Tonga: Exports"= c("TONGA"),
+  "Cook Islands: Exports"=c("COOK ISLANDS"),
+  "Kiribati: Exports"=c("KIRIBATI"),
+  "Federated States of Micronesia: Exports"=c("FED. STATES OF MICRONESIA"),
+  "Marshall Islands: Exports"=c("MARSHALL ISLANDS"),
+  "Nauru: Exports"=c("NAURU"),
+  "Niue: Exports"=c("NIUE"),
+  "Palau: Exports"=c("PALAU"),
+  "Samoa: Exports"=c("SAMOA"),
+  "French Polynesia: Exports"=c("FRENCH POLYNESIA"),
+  "Tuvalu: Exports"=c("TUVALU"),
+  "Wallis and Futuna Islands: Exports"=c("WALLIS AND FUTUNA ISLANDS")
+)
+
+
+# Build the table
+totalPacificCountryExports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
+orderedtotalPacificCountryExports<- head(sort(totalPacificCountryExports, decreasing= TRUE))
+top5PacificCountryExports<- orderedtotalPacificCountryExports %>% select(2:6)
+prettyTable(top5PacificCountryExports)
+
+
+## Calculate imports 
+
+# Define the CP4 codes need for table
+codesCP4 <- c(4000, 4071, 7100)
+
+# Define the categories used for each column
+categoryColumn <- "IMPORT.COUNTRY"
+columnCategories <- list(
+  "American Samoa: Exports"=c("AMERICAN SAMOA"),
+  "Tonga: Imports"= c("TONGA"),
+  "Cook Islands: Exports"=c("COOK ISLANDS"),
+  "Kiribati: Exports"=c("KIRIBATI"),
+  "Federated States of Micronesia: Exports"=c("FED. STATES OF MICRONESIA"),
+  "Marshall Islands: Exports"=c("MARSHALL ISLANDS"),
+  "Nauru: Exports"=c("NAURU"),
+  "Niue: Exports"=c("NIUE"),
+  "Palau: Exports"=c("PALAU"),
+  "Samoa: Exports"=c("SAMOA"),
+  "French Polynesia: Exports"=c("FRENCH POLYNESIA"),
+  "Tuvalu: Exports"=c("TUVALU"),
+  "Wallis and Futuna Islands: Exports"=c("WALLIS AND FUTUNA ISLANDS")
+)
+
+# Build the table
+totalPacificCountryImports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
+orderedtotalPacificCountryImports<- head(sort(totalPacificCountryImports, decreasing= TRUE))
+top5PacificCountryImports<- orderedtotalPacificCountryImports %>% select(2:6)
+prettyTable(top5PacificCountryExports)
+
+
+# Calculate Trade Balance of Pacific Islands
+tradeBalancePacificIslands<- totalPacificCountryExports - totalPacificCountryImports
+orderedtradeBalancePacificIslands<- head(sort(tradeBalancePacificIslands, decreasing= TRUE))
+prettyTable(orderedtradeBalancePacificIslands)
+
+
 # Create some dummy data
 dummyData <- data.frame("TradeBalance"=c(rnorm(5, mean=1000, sd=100), rnorm(5, mean=1100, sd=100)), 
                         "Country"=c("A", "B", "C", "D", "E"),
@@ -111,6 +376,10 @@ Automated text to highlight trade balance; difference between value of imports a
 # Trade Balance of New Emerging Markets
 
 ```{r trade balance of new emerging markets, fig.height=1.75}
+
+
+
+
 # Create some dummy data
 dummyData <- data.frame("TradeBalance"=c(rnorm(5, mean=1000, sd=100), rnorm(5, mean=1100, sd=100)), 
                         "Country"=c("A", "B", "C", "D", "E"),
