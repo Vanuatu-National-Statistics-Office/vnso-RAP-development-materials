@@ -21,7 +21,7 @@ openDataFolder <- file.path(repository, "data", "open")
 
 # Read in the raw trade data from secure folder of the repository 
 # Note that spaces in column names have been automatically replaced with "."s
-tradeStatsFile <- file.path(secureDataFolder, "SEC_PROC_ASY_RawDataAndReferenceTables_31-01-20.xlsx")
+tradeStatsFile <- file.path(secureDataFolder, "SEC_PROC_ASY_RawDataAndReferenceTables_31-12-19.xlsx")
 tradeStats <- read.xlsx(tradeStatsFile, sheet=1, skipEmptyRows=TRUE)
 
 #### Clean and process the latest month's data ####
