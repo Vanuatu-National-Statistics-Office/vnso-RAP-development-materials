@@ -329,8 +329,6 @@ columnCategories <- list(
 totalPacificCountryExports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
 orderedtotalPacificCountryExports<- head(sort(totalPacificCountryExports, decreasing= TRUE))
 top5PacificCountryExports<- orderedtotalPacificCountryExports %>% select(2:6)
-prettyTable(top5PacificCountryExports)
-
 
 ## Calculate imports 
 
@@ -359,14 +357,10 @@ columnCategories <- list(
 totalPacificCountryImports <- buildRawSummaryTable(processedTradeStats, codesCP4, categoryColumn, columnCategories)
 orderedtotalPacificCountryImports<- head(sort(totalPacificCountryImports, decreasing= TRUE))
 top5PacificCountryImports<- orderedtotalPacificCountryImports %>% select(2:6)
-prettyTable(top5PacificCountryExports)
-
 
 # Calculate Trade Balance of Pacific Islands
 tradeBalancePacificIslands<- totalPacificCountryExports - totalPacificCountryImports
 orderedtradeBalancePacificIslands<- head(sort(tradeBalancePacificIslands, decreasing= TRUE))
-prettyTable(orderedtradeBalancePacificIslands)
-
 
 # Create some dummy data
 dummyData <- data.frame("TradeBalance"=c(rnorm(5, mean=1000, sd=100), rnorm(5, mean=1100, sd=100)), 
