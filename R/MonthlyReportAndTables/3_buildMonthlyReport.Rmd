@@ -14,6 +14,7 @@ library(knitr) # Creating documents
 library(flextable) # Nicely formatted tables
 library(rworldmap) # World map
 library(ggplot2) # Creating plots
+library(dplyr) # Processing data
 
 # Note the repository location
 repository <- file.path("..", "..")
