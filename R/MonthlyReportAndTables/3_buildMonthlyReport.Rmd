@@ -153,20 +153,22 @@ totalPrincipleExports <- buildRawSummaryTable(processedTradeStats, codesCP4, cat
 # ECO 1.7.1 Calculate Target: level of production of major commodities to include cocoa and copra- 2030 increase 10-15% of the proportion
 
 # Create the NSDP table
-nsdpIndicators <- data.frame(
+nsdpIndicators <- data.frame( # Inserted NAs here as the number of rows in each column must match
   "Policy Objectives"=c("ECO 1.4: Increase trade and investment opportunities and reduce barriers, including through the use of Aid-for-Trade",
-                        "ECO 1.5: Increase access to markets for Vanuatu exports",
+                        "ECO 1.5: Increase access to markets for Vanuatu exports", # Exact copies here in each row as these cels will be merged
                         "ECO 1.5: Increase access to markets for Vanuatu exports",
                         "ECO 1.5: Increase access to markets for Vanuatu exports",
                         "ECO 1.6: Require all new trade agreements to demonstrate tangible benefits in the national interest",
                         "ECO 1.7: Stimulate economic diversification to spread the benefits of growth and increase economic stability"),
   "SMART Indicators"=c("ECO 1.4.1 Value and volume of national trade/merchandise trade",
+                       NA,
                        "ECO 1.5.2 Trade by trade agreement (value)",
                        "ECO 1.5.3 Balance of trade by major partner countries",
                        "ECO 1.6.2 Total estimated value of trade agreement as proportion of GDP",
                        "ECO 1.7.1 Level of production of major commodities to include cocoa and copra"),
   "Indicator Value (Increased/Decreased)"=NA,
   "Targets 2030"=c("By 2030 increase of 20%",
+                   NA,
                    "By 2020, exports increase by 15%",
                    "By 2020, exports increase by 20%",
                    "By 2030 increase by 15%",
