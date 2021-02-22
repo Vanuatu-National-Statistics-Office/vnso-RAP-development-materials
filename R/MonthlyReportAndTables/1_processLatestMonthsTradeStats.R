@@ -193,5 +193,8 @@ cat("Finished checking whether commodity values fall outside of expectations bas
 # Make copy of latest month's processed data
 processedTradeStats <- tradeStatsCommoditiesMergedWithClassifications
 
+# Save a local copy of the process data
+saveRDS(processedTradeStats, file.path(repository, "data", "secure", "processed_trade_stats.rds"))
+
 # Note progress
 cat("Finished processing and cleaning latest month's data.\n")

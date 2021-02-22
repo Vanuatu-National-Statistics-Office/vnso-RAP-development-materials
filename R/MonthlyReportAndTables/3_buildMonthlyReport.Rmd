@@ -15,9 +15,18 @@ library(flextable) # Nicely formatted tables
 library(rworldmap) # World map
 library(ggplot2) # Creating plots
 
+# Note the repository location
+repository <- file.path("..", "..")
+
 # Set the table formatting defaults
 set_flextable_defaults(font.family="Times New Roman", font.size=5, font.color="black",
                        text.align="left", table.layout="fixed", theme_fun="theme_booktabs")
+
+# Load the processed trade statistics data
+processedTradeStats <- readRDS(file.path(repository, "data", "secure", "processed_trade_stats.rds"))
+
+# Load the general R functions
+source(file.path(repository, "R", "functions.R"))
 ```
 
 # National Sustainable Development Plan Indicators (NSDP)
