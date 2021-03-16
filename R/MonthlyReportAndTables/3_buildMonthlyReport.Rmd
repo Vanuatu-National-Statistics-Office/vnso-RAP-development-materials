@@ -383,24 +383,6 @@ Automated text to highlight trade balance; difference between value of imports a
 
 ```{r trade balance of new emerging markets, fig.height=1.75}
 
-
-
-
-# Create some dummy data
-dummyData <- data.frame("TradeBalance"=c(rnorm(5, mean=1000, sd=100), rnorm(5, mean=1100, sd=100)), 
-                        "Country"=c("A", "B", "C", "D", "E"),
-                        "Type"=c(rep("Current", 5), rep("Previous", 5)))
-
-# Create a bar chart
-ggplot(data=dummyData, aes(x=Country, y=TradeBalance, fill=Type)) +
-  geom_bar(stat="identity", color="black", position=position_dodge()) +
-  theme_minimal() + 
-  scale_fill_brewer(palette="Blues") +
-  theme(legend.title=element_blank()) + 
-  coord_cartesian(ylim=range(dummyData$TradeBalance))
-```
-
-```{r fig.height=1.75}
 # Add column to tell us whether each row is import or export
 processedTradeStats <- processedTradeStats %>%
   mutate(CommodityType = case_when(CP4 %in% c(4000, 4071, 7100) ~ "IMPORT",
