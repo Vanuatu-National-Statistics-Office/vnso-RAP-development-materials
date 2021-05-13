@@ -1,28 +1,721 @@
 ---
-title: "Untitled"
-output: html_document
+title: "VNSO Trade Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    social: ["twitter", "facebook", "menu"]
+    orientation: rows
+    theme: cosmo
+    vertical_layout: scroll
+runtime: shiny
+params:
+  build_animations: TRUE
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, warning=FALSE}
+# Load libraries
+library(flexdashboard)
+library(tidyverse)
+library(DT)
+library(dplyr)
+library(gganimate)
+library(plotly)
+library(knitr)
+library(shiny)
+library(formattable)
+library(rgdal) # Reading and writing shape files
+library(sp) # Working with spatial data
+library(rmapshaper) # Simplifying polygons
+library(leaflet) # Interactive mapping
+library(countrycode) # Get country codes
+
+# Note repository location
+repository <- dirname(getwd()) # Note that to run code inline you'll need to set session working directory to source file location using Session in toolbar above
 ```
 
-## R Markdown
+```{r Load files}
+toptenexport <- read.csv(file.path(repository, "data", "secure", "tab.csv"))
+countryYearExport <- read.csv(file.path(repository, "data", "secure", "country_export.csv"))
+curtrade <- read.csv(file.path(repository, "data", "secure", "curtrade.csv"))
+exp <- read.csv(file.path(repository, "data", "secure", "country_year_export.csv"))
+imp <- read.csv(file.path(repository, "data", "secure", "country_year_import.csv"))
+services <- read.csv(file.path(repository, "data", "secure", "tblservices.csv"))
+trades <- read.csv(file.path(repository, "data", "secure", "trades.csv"))
+tradenobalances <- read.csv(file.path(repository, "data", "secure", "trade.csv"))
+#trade_ports <- read.csv(file.path(repository, "data", "secure", "trades_billions.csv"))
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+#************************** Create Summary Import historical *********************
+#importHistory <- read.csv(file.path(repository, "data", "secure", "tradeStats_historic_IMPORTS_14-09-20.csv"))
+#importHistorysummary <- importHistory %>%
+#  group_by(Year, Month, Procedure, CTY_Origin, HS) %>%
+#  summarise(Weight_Sum = sum(Weight),
+#            Value_Sum = sum(Value), .groups="keep") %>%
+#  ungroup()
+
+#write.csv(importHistorysummary, "c:/temp/importsummaryhistory.csv")
+
+importMajor <- read.csv(file.path(repository, "data", "open", "MAJOR_IMPORTS.csv"))
+importHistorysummary <- read.csv(file.path(repository, "data", "secure", "imports_history_summary.csv"))
+
+
+
 ```
 
-## Including Plots
+Dashboard
+==================================================================
 
-You can also embed plots, for example:
+```{r Calculate current month import and export}
+export <- curtrade %>%
+  filter(CP4 %in% c(1000, 1021, 1022, 3071)) %>%
+  summarise("Totex"=round(sum(Stat..Value, na.rm = TRUE)/1000000))
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+import <- curtrade %>%
+  filter(CP4 %in% c(4000, 4071, 7100)) %>%
+  summarise("Totim"=round(sum(Stat..Value, na.rm = TRUE)/1000000))
+
+curtradebalance <- export - import
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+column {data-width=400}
+------------------------------------------------------------------
+### Total Current Month Export (Millions)
+
+```{r Current trade moments}
+
+valueBox(comma(export, digits = 0),
+         icon = 'fa-balance-scale',
+         color = "green")
+```
+
+### Total Current Month Import (Millions)
+```{r Current trade imports}
+valueBox(comma(import, digits = 0),
+         icon = 'fa-balance-scale',
+         color = "blue")
+
+```
+
+### Total Current Month Trade Balance (Millions)
+```{r Current Month trade balance}
+valueBox(comma(curtradebalance, digits = 0),
+         icon = 'fa-balance-scale',
+         color = "red")
+
+```
+
+
+```{r Calculate current year services import and export}
+valueInterested <- services[services$year == 2019, ]
+
+exportServices <- valueInterested$export
+importServices <- valueInterested$import
+serviceBalance <- exportServices - importServices
+
+```
+
+
+column {data-width=400}
+------------------------------------------------------------------
+### Services Export - 2019
+```{r}
+valueBox(comma(exportServices, digits = 0),
+         icon = 'fa-balance-scale',
+         color = "green")
+```
+
+
+### Services Import - 2019
+```{r}
+
+valueBox(comma(importServices, digits = 0),
+         icon = 'fa-balance-scale',
+         color = "blue")
+```
+
+
+### Services Trade Balance - 2019
+```{r}
+
+valueBox(comma(serviceBalance, digits = 0),
+         icon = 'fa-balance-scale',
+         color = "green")
+```
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### Trades in Goods and Services by Year (Billions)
+
+```{r goods exports/imports/balance by year interactive plot}
+trades %>%
+  group_by(Year) %>%
+  summarise(Export = sum(Export_Goods_RBV),
+            Import = sum(Import_Goods_RBV),
+            SExport = sum(Export_Services_RBV),
+            SImport = sum(Import_Services_RBV), .groups="keep") %>%
+  ungroup() %>%
+  
+  plot_ly(x = ~Year,
+          y = ~Export,
+          color = "blue",
+          type = "scatter",
+          mode = "lines+markers",
+          name = "Export of Goods") %>%
+  
+  add_trace(x = ~Year,
+            y = ~Import,
+            color = "red",
+            name = "Import of Goods") %>%
+  
+  add_trace(x = ~Year,
+            y = ~SExport,
+            color = "green",
+            name = "Export of Services") %>%
+  
+  add_trace(x=~Year,
+            y = ~SImport,
+            color = "yellow",
+            name = "Import of Services") %>%
+  
+  layout(xaxis = list(title = "Year"), yaxis = list(title = 'Value (Billion(Vatu))'))
+```
+
+
+### Trade Balances by Year (Billions)
+
+```{r services exports/imports/balance by year interactive plot}
+trades %>%
+  group_by(Year) %>%
+  summarise(GBalance = sum(TradeDef_RBV),
+            SBalance = sum(Service_bal_RBV),
+            TBalance = sum(Balance_RBV), .groups="keep") %>%
+  ungroup() %>%
+   
+  plot_ly(x = ~Year,
+          y = ~GBalance,
+          color = "blue",
+          type = "scatter", 
+          mode = "lines+markers",
+          name = "Goods Balance") %>%
+  
+  add_trace(x = ~Year,
+            y = ~SBalance,
+            color = "red",
+            name = "Services Balance") %>%
+  
+  add_trace(x = ~Year,
+            y = ~TBalance,
+            color = "green",
+            name = "Balance of External Goods & Services") %>%
+  
+  layout(xaxis = list(title = "Year"), yaxis = list(title = 'Value (Billion(Vatu))'))
+```
+
+Column
+---------------------------------------------------------------------
+### Trade in Goods through Port Vila Ports
+
+```{r Trade in goods by Port}
+trade_ports %>%
+  group_by(Year) %>%
+  summarise(GExport_Lug = sum(Lug_Export),
+            GImport_Lug = sum(Lug_Import),
+            GExport_Vil = sum(Vil_Export),
+            GImport_Vil = sum(Vil_Import),
+            POrts_Balance = sum(Balance), .groups="keep") %>%
+  ungroup() %>%
+   
+  plot_ly(x = ~Year,
+          y = ~GExport_Lug,
+          color = "blue",
+          type = "scatter", 
+          mode = "lines+markers",
+          name = "Luganville Goods Export") %>%
+  
+  add_trace(x = ~Year,
+            y = ~GImport_Lug,
+            color = "red",
+            name = "Luganville Goods Import") %>%
+  
+  add_trace(x = ~Year,
+            y = ~GExport_Vil,
+            color = "green",
+            type = "scatter",
+            mode = "lines+markers",
+            name = "Port Vila Goods Export") %>%
+  
+   add_trace(x = ~Year,
+            y = ~GImport_Vil,
+            color = "purple",
+            type = "scatter",
+            mode = "lines+markers",
+            name = "Port Vila Goods Import") %>%
+  
+  layout(xaxis = list(title = "Year"), yaxis = list(title = 'Value (Billion (vatu)'))
+
+```
+
+
+### Trade Balance in Goods by Port
+
+```{r Trade in goods Balances by Port}
+trade_ports %>%
+  group_by(Year) %>%
+  summarise(GLug_Bal = sum(Lug_Bal),
+            GVil_Bal = sum(Vil_Bal), .groups = "keep") %>%
+  ungroup() %>%
+   
+  plot_ly(x = ~Year,
+          y = ~GLug_Bal,
+          color = "blue",
+          type = "scatter", 
+          mode = "lines+markers",
+          name = "Luganville Trade Balance") %>%
+  
+  add_trace(x = ~Year,
+            y = ~GVil_Bal,
+            color = "red",
+            name = "Port Vila Trade Balance") %>%
+  
+  
+  layout(xaxis = list(title = "Year"), yaxis = list(title = 'Value (Billion (vatu)'))
+
+```
+
+
+
+
+
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Trade Import Activities with 10 top countries overtime
+
+```{r animated graphic for top 10 countries by year for imports, eval = params$build_animations}
+
+imp %>% 
+  mutate_if(is.factor, as.character) %>%
+  mutate_if(is.integer, as.numeric) -> imp 
+
+imp_formatted <- imp %>%
+  group_by(Year) %>%
+  mutate(rank = rank(-Value_mill),
+         Value_rel = Value_mill/Value_mill[rank==1],
+         Value_lbl = paste0(" ",round(Value_mill))) %>%
+  group_by(CTY_Name) %>% 
+  filter(rank <=10) %>%
+  ungroup()
+
+anim_imp <- ggplot(imp_formatted, 
+                   aes(rank, group = CTY_Name, fill = as.factor(CTY_Name), color = as.factor(CTY_Name))) +
+    
+  geom_tile(aes(y = Value_mill/2, height = Value_mill, width = 0.9),
+            alpha = 0.8, color = NA) +
+  
+  geom_text(aes(y = 0, label = paste(CTY_Name, " ")), vjust = 0.2, hjust = 1) +
+  geom_text(aes(y=Value_mill,label = Value_lbl, hjust=0)) +
+  
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none",
+        panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="grey" ),
+        panel.grid.minor.x = element_line( size=.1, color="grey" ),
+        plot.title=element_text(size=25, hjust=0.5, face="bold", colour="grey", vjust=-1),
+        plot.subtitle=element_text(size=18, hjust=0.5, face="italic", color="grey"),
+        plot.caption =element_text(size=8, hjust=0.5, face="italic", color="grey"),
+        plot.background=element_blank(),
+        plot.margin = margin(2,2, 2, 4, "cm")) +
+  
+  transition_states(Year, transition_length = 2, state_length = 1, wrap = FALSE) +
+  
+  view_follow(fixed_x = TRUE)  +
+  
+  labs(title = 'Import per Year : {closest_state}',  
+       subtitle  =  "Top 10 Countries Vanuatu has imported from",
+       caption  = "Import Value in Billions of Vatu | Data Source: Asycuda")
+
+animate(anim_imp, nframes = 100, fps = 5)
+```
+
+
+### Trade Export Activities with 10 top countries overtime
+
+```{r animated graphic for top 10 countries by year for exports, eval = params$build_animations}
+exp %>%
+  mutate_if(is.factor, as.character)%>%
+  mutate_if(is.integer, as.numeric) -> exp 
+
+exp_formatted <- exp %>%
+  group_by(Year) %>%
+  mutate(rank = rank(-Value_mill),
+         Value_rel = Value_mill/Value_mill[rank==1],
+         Value_lbl = paste0(" ",round(Value_mill))) %>%
+  group_by(CTY_Name) %>% 
+  filter(rank <=10) %>%
+  ungroup()
+
+
+anim_exp <- ggplot(exp_formatted, 
+                   aes(rank, group = CTY_Name, fill = as.factor(CTY_Name), color = as.factor(CTY_Name))) +
+  
+  geom_tile(aes(y = Value_mill/2, height = Value_mill, width = 0.9),
+            alpha = 0.8, color = NA) +
+  
+  geom_text(aes(y = 0, label = paste(CTY_Name, " ")), vjust = 0.2, hjust = 1) +
+  geom_text(aes(y=Value_mill,label = Value_lbl, hjust=0)) +
+  
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none",
+        panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="grey" ),
+        panel.grid.minor.x = element_line( size=.1, color="grey" ),
+        plot.title=element_text(size=25, hjust=0.5, face="bold", colour="grey", vjust=-1),
+        plot.subtitle=element_text(size=18, hjust=0.5, face="italic", color="grey"),
+        plot.caption =element_text(size=8, hjust=0.5, face="italic", color="grey"),
+        plot.background=element_blank(),
+        plot.margin = margin(2,2, 2, 4, "cm")) +
+  
+  transition_states(Year, transition_length = 4, state_length = 1, wrap = FALSE) +
+  
+  view_follow(fixed_x = TRUE)  +
+  
+  labs(title = 'Export per Year : {closest_state}',  
+       subtitle  =  "Top 10 Countries Vanuatu has exported to",
+       caption  = "Export Value in Billions of Vatu | Data Source: Asycuda") 
+
+animate(anim_imp, nframes = 100, fps = 5)
+```
+
+Export by Commodity
+=====================================
+
+Column {.sidebar}
+------------------------------------------------------------------
+```{r Export by commodities, warning=FALSE}
+startData <- toptenexport
+GBChoices <- as.list(names(startData))
+names(GBChoices) <- paste(names(startData),map(startData,~length(unique(.x))))
+
+selectInput(inputId = "GB", label = "Group By", choices = GBChoices, selected = "Year 19")
+selectInput(inputId = "Metric", label = "Metric", choices = names(select_if(startData,is.numeric)), selected = "Year")
+
+updateData <- reactive(
+  startData %>% 
+    group_by_(input$GB) %>% 
+    summarise_if(is.numeric, sum, na.rm=T)
+  )
+```
+
+```{r Expot by countries}
+countryExport <- countryYearExport
+CEChoices <- as.list(names(countryExport))
+names(CEChoices) <- paste(names(countryExport),map(countryExport,~length(unique(.x))))
+
+updateCountryExport <- reactive(
+  countryExport %>%
+    group_by_(input$CE) %>% 
+    summarise_if(is.numeric,sum,na.rm=T)
+  )
+```
+
+
+Export by Commodity {data-navmenu="Trade in Export"}
+=====================================
+
+Column {.sidebar}
+------------------------------------------------------------------
+```{r}
+selectInput(inputId = "GB", label = "Group By", choices = GBChoices)
+selectInput(inputId = "Metric", label = "Metric", choices = names(select_if(startData,is.numeric)))
+```
+
+Column 
+------------------------------------------------------------------
+
+### Bar Plot of the selected commodity
+```{r}
+renderPlot({
+  updateData() %>%
+    ggplot(aes_string(x=input$GB, y=input$Metric, fill=input$GB)) +
+      geom_col() +
+      theme(panel.background = element_rect(fill = '#cccccc', colour = 'red'))
+})
+```
+
+column
+-------------------------------------------------
+### Table didplay of the selected commodity 
+```{r}
+renderDT(
+  updateData(), rownames = F, extensions = 'Buttons', filter="top", editable=T,
+  options = list(
+    dom = 'Blfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    lengthMenu = list(c(10,50,100,-1),c(10,50,100,"All"))
+  )
+)
+```
+
+Export by Country {data-navmenu="Trade in Export"}
+=====================================  
+
+Column {.sidebar}
+------------------------------------------------------------------
+```{r}
+countryExport <- countryYearExport
+CEChoices <- as.list(names(countryExport))
+names(CEChoices) <- paste(names(countryExport),map(countryExport,~length(unique(.x))))
+
+selectInput(inputId = "CE",label = "Group By",choices = CEChoices, selected = "Year 19")
+selectInput(inputId = "Metric_two",label = "Metric",choices = names(select_if(countryExport,is.numeric)), selected = "Year")
+
+updateCountryExport <- reactive(
+  countryExport %>%
+    group_by_(input$CE) %>% 
+    summarise_if(is.numeric,sum,na.rm=T)
+  )
+```
+
+column
+--------------------------------------
+### Bar Plot of the export value by selected country
+```{r}
+renderPlot({
+ updateCountryExport() %>% 
+  ggplot(aes_string(x=input$CE,y=input$Metric_two,fill=input$CE)) +
+  geom_col() +
+  theme(panel.background = element_rect(fill = '#cccccc', colour = 'red'))
+})
+```
+
+column
+-----------------------------------------------------
+### Table didplay of export value by selected country 
+```{r}
+renderDT(
+  updateCountryExport(), rownames = F, extensions = 'Buttons', filter="top", editable=T,
+  options = list(
+    dom = 'Blfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    lengthMenu = list(c(10,50,100,-1),c(10,50,100,"All"))
+  )
+)
+```
+
+
+
+Import by Goods {data-navmenu="Trade in Import"}
+=====================================
+
+```{r Import by goods of interest}
+majorTen <- c("Rice"=10063000, "Wheat flour/ mesline flour"=11010000, "Cigarettes containing tobacco"=24022000, "Portland cement (excl. white)"=25232900, "Pharmaceutical products"=30049000, "Personal & Household effects"=98010000)
+
+```
+
+Column {.sidebar}
+------------------------------------------------------------------
+```{r}
+selectInput(inputId = "MJTN",label = "Major 10 Goods",choices = majorTen)
+
+```
+
+```{r}
+
+updateData_import_commodity <- reactive(
+  importHistorysummary %>% 
+    filter(HS == input$MJTN) %>%
+    group_by(Year) %>%
+    summarise(sum = Value_Sum, .groups = "drop")
+  )
+
+```
+
+column
+-------------------------------------------------
+### Bar Plot of Import by Commodity
+
+```{r}
+renderPlot({
+  updateData_import_commodity() %>% 
+  ggplot(aes(x=Year, y=sum)) +
+    geom_col() +
+    theme(panel.background = element_rect(fill = '#cccccc', colour = 'red'))
+})
+```
+
+
+column
+-------------------------------------------------
+### Table display of the selected commodity 
+```{r}
+renderDT(
+  updateData_import_commodity(), rownames = F, extensions = 'Buttons', filter="top", editable=T,
+  options = list(
+    dom = 'Blfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    lengthMenu = list(c(10,50,100,-1),c(10,50,100,"All"))
+  )
+)
+
+```
+
+
+Import by Country {data-navmenu="Trade in Import"}
+===================================== 
+
+Column {.sidebar}
+------------------------------------------------------------------
+```{r}
+uniqueCountriesISO2 <- unique(importHistorysummary$CTY_Origin[is.na(importHistorysummary$CTY_Origin) == FALSE])
+countries <- countrycode(uniqueCountriesISO2, origin = "iso2c", destination = "country.name")
+
+countriesToSelectFrom <- uniqueCountriesISO2
+names(countriesToSelectFrom) <- countries
+countriesToSelectFrom <- countriesToSelectFrom[is.na(countries) == FALSE]
+
+selectInput(inputId = "importCountry",label = "Metric", choices = countriesToSelectFrom)
+```
+
+
+```{r}
+
+updateData_import_country <- reactive(
+  importHistorysummary %>% 
+    filter(CTY_Origin == input$importCountry) %>%
+    group_by(Year) %>%
+    summarise(sum = Value_Sum, .groups = "drop")
+)
+
+```
+
+
+column
+-------------------------------------------------
+### Bar Plot of Import by Country
+
+```{r}
+renderPlot({
+ updateData_import_country() %>%
+  ggplot(aes(x=Year, y=sum)) +
+  geom_col() +
+  theme(panel.background = element_rect(fill = '#cccccc', colour = 'red'))
+})
+```
+
+column
+-------------------------------------------------
+### Table display of the selected country 
+```{r}
+renderDT(
+  updateData_import_country(), rownames = F, extensions = 'Buttons', filter="top", editable=T,
+  options = list(
+    dom = 'Blfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    lengthMenu = list(c(10,50,100,-1),c(10,50,100,"All"))
+  )
+)
+
+```
+
+
+Trade through Maps
+===============================================
+
+```{r load world map, include = FALSE}
+# Download world country boundaries from: https://www.naturalearthdata.com/downloads/50m-cultural-vectors/50m-admin-0-countries-2/ (https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/50m/cultural/ne_50m_admin_0_countries.zip)
+# Get a map of the world as as a spatial polygons object
+shapeFile <- file.path(repository, "data", "secure", "ne_50m_admin_0_countries", "ne_50m_admin_0_countries.shp")
+world <- readOGR(shapeFile, verbose = FALSE)
+
+# Simplify the polygons
+worldSimple <- ms_simplify(world, keep = 0.1)
+
+# Keep necessary columns for joining
+worldSimple@data <- worldSimple@data[, c("NAME", "CONTINENT", "ISO_A2", "ISO_A3")]
+```
+
+```{r join world with trades data}
+# Join in the imports data
+worldImports <- merge(worldSimple, imp[imp$Year == 2018, c("CTY_ID", "Value_mill")], by.x = "ISO_A2", by.y = "CTY_ID")
+
+# Join in the exports
+worldImportsAndExports <- merge(worldImports, exp[exp$Year == 2018, c("CNTY_CODE", "Value_mill")],
+                                by.x = "ISO_A2", by.y = "CNTY_CODE",
+                                suffixes = c("_Imports", "_Exports"))
+```
+
+```{r build interactive map}
+# Create a colour palette
+valueRange <- range(c(worldImportsAndExports$Value_mill_Imports, 
+                      worldImportsAndExports$Value_mill_Exports), na.rm = TRUE)
+colours <- c("blue", "white", "red")
+colourPalette <- colorNumeric(colours, valueRange)
+colourPaletteWithoutNA <- colorNumeric(colours, valueRange, na.color=rgb(0,0,0,0))
+
+# Create labels that will appear on hover
+labels <- paste0("<strong>", worldImportsAndExports$NAME, "</strong>",
+                 "<br>Import value: ", round(worldImportsAndExports$Value_mill_Imports, digits=2),
+                    ifelse(is.na(worldImportsAndExports$Value_mill_Imports), "", " million"),
+                 "<br>Export value: ", round(worldImportsAndExports$Value_mill_Exports, digits=2),
+                 ifelse(is.na(worldImportsAndExports$Value_mill_Exports), "", " million")) %>% lapply(htmltools::HTML)
+
+# Create an interactive map
+leaflet(worldImportsAndExports, options = leafletOptions(crs = leafletCRS(crsClass = "L.CRS.EPSG4326"))) %>%
+
+  setView(lng = 0, lat = 0, zoom = 1) %>%
+  
+  addPolygons(weight = 2, color = "white", dashArray = "3", fillOpacity = 0.5,
+              fillColor = ~colourPalette(Value_mill_Imports),
+              highlight = highlightOptions(weight = 5, color = "#666", dashArray = "",
+                                           fillOpacity = 1, bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
+                                          textsize = "15px", direction = "auto"),
+              group = "Imports") %>%
+
+  addPolygons(weight = 2, color = "white", dashArray = "3", fillOpacity = 0.5,
+              fillColor = ~colourPalette(Value_mill_Exports),
+              highlight = highlightOptions(weight = 5, color = "#666", dashArray = "",
+                                           fillOpacity = 1, bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
+                                          textsize = "15px", direction = "auto"),
+              group = "Exports") %>%
+  
+  addLegend(values = valueRange, bins = seq(from = 0, to = signif(valueRange[2], 2), length.out = 5),
+            pal = colourPaletteWithoutNA, title = "Value (millions)",
+            position = "bottomleft", na.label = "") %>%
+  
+  addLayersControl(baseGroups = c("Imports", "Exports"), 
+                   options = layersControlOptions(collapsed=FALSE)) %>%
+  hideGroup(c("Exports"))
+```
